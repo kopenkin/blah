@@ -33,3 +33,5 @@ for relative in dist.files or []:
 print("Collected dependency licenses in", output)
 for source in (root / ".build/windows/runtimes").glob("COPYING*"):
     shutil.copy2(source, output / source.name)
+for source in (root / "Windows/licenses").glob("*.txt"):
+    shutil.copy2(source, output / source.name)

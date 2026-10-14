@@ -9,6 +9,8 @@ a = Analysis([str(root / 'Windows/main.py')], pathex=[str(root / 'Windows')],
              binaries=[(str(p), 'runtimes') for p in runtimes.glob('*.dll')],
              datas=[], hiddenimports=['pystray._win32'], hookspath=[], runtime_hooks=[],
              excludes=[], noarchive=False)
+# Blah uses WASAPI only; omit the optional ASIO SDK binary from the wheel.
+a.binaries = [entry for entry in a.binaries if '-asio.dll' not in entry[0].lower()]
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='Blah', debug=False,
           bootloader_ignore_signals=False, strip=False, upx=False, console=False,

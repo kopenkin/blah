@@ -8,6 +8,8 @@ import sys
 
 
 def main():
+    # The portable app ships PortAudio's WASAPI build only.
+    os.environ.pop("SD_ENABLE_ASIO", None)
     parser = argparse.ArgumentParser(description="Blah local dictation for Windows")
     parser.add_argument("--worker", choices=["speech", "cleanup"], help=argparse.SUPPRESS)
     parser.add_argument("--tray", action="store_true", help="Start with Settings hidden")
