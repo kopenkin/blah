@@ -21,7 +21,8 @@ extern "C" __declspec(dllexport) const char *blah_clean(const char *path, const 
         if (std::string(structure) != "prose" && std::string(structure) != "lists") throw std::runtime_error("Invalid structure");
         if (std::string(context) != "general" && std::string(context) != "email") throw std::runtime_error("Invalid context");
         if (!model || loaded != path) {
-            llama_backend_init();
+            static bool backend = (llama_backend_init(), true);
+            (void)backend;
             auto params = llama_model_default_params();
             params.n_gpu_layers = 0;
             auto replacement = llama_model_load_from_file(path, params);

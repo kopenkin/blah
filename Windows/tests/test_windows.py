@@ -88,6 +88,46 @@ class WindowsIntegration(unittest.TestCase):
         self.assertEqual(unsaved["rawText"], "hello")
         self.assertIn("clipboard locked", notice)
 
+    def test_recorder_keeps_audio_on_overflow_interruption_and_cap(self):
+        from blah import audio
+        from unittest.mock import Mock
+        streams = []
+        def stream(**kwargs):
+            streams.append(kwargs["callback"]); return Mock()
+        with patch.object(audio.sd, "RawInputStream", side_effect=stream), \
+             patch.object(audio, "MAX_FRAMES", 4):
+            recorder = audio.Recorder(); recorder.start(dict(index=0))
+            capture, block = streams[-1], bytes(8)
+            capture(block, 2, None, Mock(input_overflow=True))
+            self.assertIsNone(recorder.error)
+            capture(block, 2, None, None)
+            self.assertTrue(recorder.full)
+            capture(block, 2, None, None)
+            self.assertEqual(recorder.stop(), block * 2)
+            recorder.start(dict(index=0)); capture = streams[-1]
+            capture(block, 2, None, None)
+            capture(block, 2, None, Mock(input_overflow=False))
+            self.assertIsNotNone(recorder.error)
+            self.assertEqual(recorder.stop(), block * 2)
+
+    def test_paste_target_ignores_blah_and_taskbar(self):
+        from blah import platform as p
+        import os
+        def owner(pid):
+            def fill(hwnd, out): out._obj.value = pid; return 1
+            return fill
+        def window_class(name):
+            def fill(hwnd, buffer, size): buffer.value = name; return len(name)
+            return fill
+        with patch.object(p.user32, "GetForegroundWindow", return_value=77):
+            with patch.object(p.user32, "GetWindowThreadProcessId", side_effect=owner(os.getpid())):
+                self.assertIsNone(p.paste_target())
+            with patch.object(p.user32, "GetWindowThreadProcessId", side_effect=owner(os.getpid() + 1)):
+                with patch.object(p.user32, "GetClassNameW", side_effect=window_class("Shell_TrayWnd")):
+                    self.assertIsNone(p.paste_target())
+                with patch.object(p.user32, "GetClassNameW", side_effect=window_class("Notepad")):
+                    self.assertEqual(p.paste_target(), 77)
+
     def test_clipboard_has_owner_and_transfers_memory(self):
         from blah import platform as p
         memory = ctypes.create_string_buffer(128)

@@ -35,6 +35,10 @@ def choose_microphone(priority: list[str], devices: list[dict]) -> dict:
     raise RuntimeError("No microphone is available. Connect one and enable microphone access in Windows Settings.")
 
 
+# 15 minutes of 16 kHz mono float audio (~58 MB); recording finishes at the cap.
+MAX_FRAMES = 16000 * 60 * 15
+
+
 class Recorder:
     def __init__(self):
         self.stream = None
@@ -47,11 +51,15 @@ class Recorder:
     def start(self, device: dict):
         self.chunks, self.frames, self.error, self.full = [], 0, None, False
         def capture(data, frames, timing, status):
-            if status:
+            # A dropped buffer (input overflow) is harmless; keep recording.
+            if status and not status.input_overflow:
                 self.error = "Audio capture was interrupted; check the microphone connection."
+            if self.full:
+                return
             chunk = bytes(data)
             self.chunks.append(chunk)
             self.frames += frames
+            self.full = self.frames >= MAX_FRAMES
             samples = array.array("f", chunk)
             self.level = min(1.0, math.sqrt(sum(x * x for x in samples) / max(1, len(samples))) * 6)
         try:
@@ -73,8 +81,7 @@ class Recorder:
         self.level = 0.0
         audio = b"".join(self.chunks)
         self.chunks = []
-        if self.error:
-            raise RuntimeError(self.error)
+        # The caller reports self.error; audio captured before an interruption is kept.
         return audio
 
 

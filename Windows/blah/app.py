@@ -89,6 +89,7 @@ class App:
         self.notice = ""
         self.notice_until = 0
         self.target = None
+        self.paste_last_target = None
         self.gesture = Gesture()
         self.recorder = Recorder()
         self.overlay = Overlay(root)
@@ -404,8 +405,11 @@ class App:
                 self.shown = True; play_sound(self.prefs.startSound, self.prefs.startSoundVolume)
         elif action in ("finish", "discard"):
             try:
+                error, full = self.recorder.error, self.recorder.full
                 audio = self.recorder.stop()
                 if getattr(self, "shown", False): play_sound(self.prefs.stopSound, self.prefs.stopSoundVolume)
+                if action == "finish" and error: self.notify(error + " Transcribing what was recorded.", 8)
+                elif action == "finish" and full: self.notify("Recording reached the 15-minute limit.", 8)
                 if action == "finish":
                     if len(audio) < 3200 * 4:
                         self.notify("Recording was too short. Hold the key a little longer.")
@@ -488,8 +492,7 @@ class App:
                 elif event == "history": self.show(True)
                 elif event == "paste_last":
                     if self.last:
-                        target = win.user32.GetForegroundWindow()
-                        threading.Thread(target=win.paste, args=(self.last, target, threading.Event()), daemon=True).start()
+                        threading.Thread(target=win.paste, args=(self.last, self.paste_last_target, threading.Event()), daemon=True).start()
                 elif event == "quit": self.quit(); return
                 elif event == "notice": self.notify(value, 10)
                 elif event == "job_start": self.current = value; self.stage = "Transcribing"
@@ -504,6 +507,8 @@ class App:
                 elif event == "progress": self.download_progress.set(value)
                 elif event == "download_done": self.downloading = False; self.notify(value, 8)
             now = time.monotonic()
+            # Opening the tray menu focuses the taskbar, so remember the app the user was in.
+            self.paste_last_target = win.paste_target() or self.paste_last_target
             self.action(self.gesture.tick(now))
             if self.gesture.mode != "none" and (self.recorder.full or self.recorder.error):
                 self.gesture.mode = "none"; self.action("finish")

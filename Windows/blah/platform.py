@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ctypes as C
 from ctypes import wintypes as W
+import os
 import threading
 import time
 import winreg
@@ -65,6 +66,27 @@ user32.CreateWindowExW.argtypes = [W.DWORD, W.LPCWSTR, W.LPCWSTR, W.DWORD,
     C.c_int, C.c_int, C.c_int, C.c_int, W.HWND, W.HMENU, W.HINSTANCE, C.c_void_p]
 user32.CreateWindowExW.restype = W.HWND
 user32.DestroyWindow.argtypes = [W.HWND]
+
+
+user32.GetWindowThreadProcessId.argtypes = [W.HWND, C.POINTER(W.DWORD)]
+user32.GetWindowThreadProcessId.restype = W.DWORD
+user32.GetClassNameW.argtypes = [W.HWND, W.LPWSTR, C.c_int]
+SHELL_CLASSES = {"Shell_TrayWnd", "Shell_SecondaryTrayWnd", "NotifyIconOverflowWindow",
+                 "TopLevelWindowForOverflowXamlIsland", "Progman", "WorkerW"}
+
+
+def paste_target() -> int | None:
+    """Foreground window of another app, or None for Blah's own windows and the taskbar/tray."""
+    hwnd = user32.GetForegroundWindow()
+    if not hwnd:
+        return None
+    pid = W.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, C.byref(pid))
+    if pid.value == os.getpid():
+        return None
+    name = C.create_unicode_buffer(256)
+    user32.GetClassNameW(hwnd, name, len(name))
+    return None if name.value in SHELL_CLASSES else hwnd
 
 
 def key_name(key: int) -> str:
